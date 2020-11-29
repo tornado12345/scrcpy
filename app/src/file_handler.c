@@ -1,13 +1,14 @@
 #include "file_handler.h"
 
+#include <assert.h>
 #include <string.h>
-#include <SDL2/SDL_assert.h>
 
 #include "config.h"
 #include "command.h"
-#include "device.h"
-#include "lock_util.h"
-#include "log.h"
+#include "util/lock.h"
+#include "util/log.h"
+
+#define DEFAULT_PUSH_TARGET "/sdcard/"
 
 static void
 file_handler_request_destroy(struct file_handler_request *req) {
@@ -15,7 +16,8 @@ file_handler_request_destroy(struct file_handler_request *req) {
 }
 
 bool
-file_handler_init(struct file_handler *file_handler, const char *serial) {
+file_handler_init(struct file_handler *file_handler, const char *serial,
+                  const char *push_target) {
 
     cbuf_init(&file_handler->queue);
 
@@ -31,7 +33,7 @@ file_handler_init(struct file_handler *file_handler, const char *serial) {
     if (serial) {
         file_handler->serial = SDL_strdup(serial);
         if (!file_handler->serial) {
-            LOGW("Cannot strdup serial");
+            LOGW("Could not strdup serial");
             SDL_DestroyCond(file_handler->event_cond);
             SDL_DestroyMutex(file_handler->mutex);
             return false;
@@ -45,6 +47,8 @@ file_handler_init(struct file_handler *file_handler, const char *serial) {
 
     file_handler->stopped = false;
     file_handler->current_process = PROCESS_NONE;
+
+    file_handler->push_target = push_target ? push_target : DEFAULT_PUSH_TARGET;
 
     return true;
 }
@@ -67,8 +71,8 @@ install_apk(const char *serial, const char *file) {
 }
 
 static process_t
-push_file(const char *serial, const char *file) {
-    return adb_push(serial, file, DEVICE_SDCARD_PATH);
+push_file(const char *serial, const char *file, const char *push_target) {
+    return adb_push(serial, file, push_target);
 }
 
 bool
@@ -116,7 +120,8 @@ run_file_handler(void *data) {
         }
         struct file_handler_request req;
         bool non_empty = cbuf_take(&file_handler->queue, &req);
-        SDL_assert(non_empty);
+        assert(non_empty);
+        (void) non_empty;
 
         process_t process;
         if (req.action == ACTION_INSTALL_APK) {
@@ -124,7 +129,8 @@ run_file_handler(void *data) {
             process = install_apk(file_handler->serial, req.file);
         } else {
             LOGI("Pushing %s...", req.file);
-            process = push_file(file_handler->serial, req.file);
+            process = push_file(file_handler->serial, req.file,
+                                file_handler->push_target);
         }
         file_handler->current_process = process;
         mutex_unlock(file_handler->mutex);
@@ -137,9 +143,11 @@ run_file_handler(void *data) {
             }
         } else {
             if (process_check_success(process, "adb push")) {
-                LOGI("%s successfully pushed to /sdcard/", req.file);
+                LOGI("%s successfully pushed to %s", req.file,
+                                                     file_handler->push_target);
             } else {
-                LOGE("Failed to push %s to /sdcard/", req.file);
+                LOGE("Failed to push %s to %s", req.file,
+                                                file_handler->push_target);
             }
         }
 
@@ -169,7 +177,7 @@ file_handler_stop(struct file_handler *file_handler) {
     cond_signal(file_handler->event_cond);
     if (file_handler->current_process != PROCESS_NONE) {
         if (!cmd_terminate(file_handler->current_process)) {
-            LOGW("Cannot terminate install process");
+            LOGW("Could not terminate install process");
         }
         cmd_simple_wait(file_handler->current_process, NULL);
         file_handler->current_process = PROCESS_NONE;

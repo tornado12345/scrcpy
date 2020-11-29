@@ -1,8 +1,10 @@
 #include "command.h"
 
+#include <sys/stat.h>
+
 #include "config.h"
-#include "log.h"
-#include "str_util.h"
+#include "util/log.h"
+#include "util/str_util.h"
 
 static int
 build_cmd(char *cmd, size_t len, const char *const argv[]) {
@@ -19,7 +21,7 @@ build_cmd(char *cmd, size_t len, const char *const argv[]) {
 }
 
 enum process_result
-cmd_execute(const char *path, const char *const argv[], HANDLE *handle) {
+cmd_execute(const char *const argv[], HANDLE *handle) {
     STARTUPINFOW si;
     PROCESS_INFORMATION pi;
     memset(&si, 0, sizeof(si));
@@ -33,7 +35,7 @@ cmd_execute(const char *path, const char *const argv[], HANDLE *handle) {
 
     wchar_t *wide = utf8_to_wide_char(cmd);
     if (!wide) {
-        LOGC("Cannot allocate wide char string");
+        LOGC("Could not allocate wide char string");
         return PROCESS_ERROR_GENERIC;
     }
 
@@ -67,7 +69,7 @@ cmd_simple_wait(HANDLE handle, DWORD *exit_code) {
     DWORD code;
     if (WaitForSingleObject(handle, INFINITE) != WAIT_OBJECT_0
             || !GetExitCodeProcess(handle, &code)) {
-        // cannot wait or retrieve the exit code
+        // could not wait or retrieve the exit code
         code = -1; // max value, it's unsigned
     }
     if (exit_code) {
@@ -89,4 +91,23 @@ get_executable_path(void) {
     }
     buf[len] = '\0';
     return utf8_from_wide_char(buf);
+}
+
+bool
+is_regular_file(const char *path) {
+    wchar_t *wide_path = utf8_to_wide_char(path);
+    if (!wide_path) {
+        LOGC("Could not allocate wide char string");
+        return false;
+    }
+
+    struct _stat path_stat;
+    int r = _wstat(wide_path, &path_stat);
+    SDL_free(wide_path);
+
+    if (r) {
+        perror("stat");
+        return false;
+    }
+    return S_ISREG(path_stat.st_mode);
 }

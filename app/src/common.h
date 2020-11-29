@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "config.h"
+
 #define ARRAY_LEN(a) (sizeof(a) / sizeof(a[0]))
 #define MIN(X,Y) (X) < (Y) ? (X) : (Y)
 #define MAX(X,Y) (X) > (Y) ? (X) : (Y)
@@ -23,6 +25,11 @@ struct position {
     // accordingly.
     struct size screen_size;
     struct point point;
+};
+
+struct port_range {
+    uint16_t first;
+    uint16_t last;
 };
 
 #endif

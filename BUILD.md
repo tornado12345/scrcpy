@@ -8,6 +8,22 @@ case, use the [prebuilt server] (so you will not need Java or the Android SDK).
 
 [prebuilt server]: #prebuilt-server
 
+## Branches
+
+### `master`
+
+The `master` branch concerns the latest release, and is the home page of the
+project on Github.
+
+
+### `dev`
+
+`dev` is the current development branch. Every commit present in `dev` will be
+in the next release.
+
+If you want to contribute code, please base your commits on the latest `dev`
+branch.
+
 
 ## Requirements
 
@@ -40,10 +56,10 @@ Install the required packages from your package manager.
 
 ```bash
 # runtime dependencies
-sudo apt install ffmpeg libsdl2-2.0-0
+sudo apt install ffmpeg libsdl2-2.0-0 adb
 
 # client build dependencies
-sudo apt install make gcc git pkg-config meson ninja-build \
+sudo apt install gcc git pkg-config meson ninja-build \
                  libavcodec-dev libavformat-dev libavutil-dev \
                  libsdl2-dev
 
@@ -70,7 +86,7 @@ sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-rele
 sudo dnf install SDL2-devel ffms2-devel meson gcc make
 
 # server build dependencies
-sudo dnf install java
+sudo dnf install java-devel
 ```
 
 
@@ -160,8 +176,8 @@ Additionally, if you want to build the server, install Java 8 from Caskroom, and
 make it avaliable from the `PATH`:
 
 ```bash
-brew tap caskroom/versions
-brew cask install java8
+brew tap homebrew/cask-versions
+brew cask install adoptopenjdk/openjdk/adoptopenjdk8
 export JAVA_HOME="$(/usr/libexec/java_home --version 1.8)"
 export PATH="$JAVA_HOME/bin:$PATH"
 ```
@@ -174,12 +190,17 @@ See [pierlon/scrcpy-docker](https://github.com/pierlon/scrcpy-docker).
 ## Common steps
 
 If you want to build the server, install the [Android SDK] (_Android Studio_),
-and set `ANDROID_HOME` to its directory. For example:
+and set `ANDROID_SDK_ROOT` to its directory. For example:
 
 [Android SDK]: https://developer.android.com/studio/index.html
 
 ```bash
-export ANDROID_HOME=~/android/sdk
+# Linux
+export ANDROID_SDK_ROOT=~/Android/Sdk
+# Mac
+export ANDROID_SDK_ROOT=~/Library/Android/sdk
+# Windows
+set ANDROID_SDK_ROOT=%LOCALAPPDATA%\Android\sdk
 ```
 
 If you don't want to build the server, use the [prebuilt server].
@@ -195,8 +216,7 @@ Then, build:
 
 ```bash
 meson x --buildtype release --strip -Db_lto=true
-cd x
-ninja
+ninja -Cx
 ```
 
 _Note: `ninja` [must][ninja-user] be run as a non-root user (only `ninja
@@ -219,13 +239,13 @@ To run without installing:
 After a successful build, you can install _scrcpy_ on the system:
 
 ```bash
-sudo ninja install    # without sudo on Windows
+sudo ninja -Cx install    # without sudo on Windows
 ```
 
 This installs two files:
 
  - `/usr/local/bin/scrcpy`
- - `/usr/local/share/scrcpy/scrcpy-server.jar`
+ - `/usr/local/share/scrcpy/scrcpy-server`
 
 Just remove them to "uninstall" the application.
 
@@ -234,18 +254,20 @@ You can then [run](README.md#run) _scrcpy_.
 
 ## Prebuilt server
 
- - [`scrcpy-server-v1.9.jar`][direct-scrcpy-server]  
-   _(SHA-256: ad7e539f100e48259b646f26982bc63e0a60a81ac87ae135e242855bef69bd1a)_
+ - [`scrcpy-server-v1.16`][direct-scrcpy-server]  
+   _(SHA-256: 94a79e05b4498d0460ab7bd9d12cbf05156e3a47bf0c5d1420cee1d4493b3832)_
 
-[direct-scrcpy-server]: https://github.com/Genymobile/scrcpy/releases/download/v1.9/scrcpy-server-v1.9.jar
+[direct-scrcpy-server]: https://github.com/Genymobile/scrcpy/releases/download/v1.16/scrcpy-server-v1.16
 
 Download the prebuilt server somewhere, and specify its path during the Meson
 configuration:
 
 ```bash
 meson x --buildtype release --strip -Db_lto=true \
-    -Dprebuilt_server=/path/to/scrcpy-server.jar
-cd x
-ninja
-sudo ninja install
+    -Dprebuilt_server=/path/to/scrcpy-server
+ninja -Cx
+sudo ninja -Cx install
 ```
+
+The server only works with a matching client version (this server works with the
+`master` branch).
